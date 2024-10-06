@@ -7,7 +7,8 @@ use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use SendGrid;
 
 class CampaignController extends Controller
 {
@@ -116,16 +117,32 @@ class CampaignController extends Controller
             throw new Exception('Only email campaigns can be sent currently');
         }
 
-        //todo make it correctly, it doesn't work for now, need to integrate Mailer api
-        Mail::raw($campaign->content, function ($message) use ($campaign) {
-            $message->to('dushurbakiev@gmail.com')
-            ->subject($campaign->subject);
-        });
+        //todo move to mail service
+        $email = new \SendGrid\Mail\Mail();
 
-        $campaign->status = 'sent'; //todo need const and update via update eloquent method
-        $campaign->save();
+        $email->setFrom("dushurbakiev@gmail.com", "Davlat");
+        $email->setSubject($campaign->subject);
+        $email->addTo("davlatbek.ushurbakiyev@pinemelon.com", "Davlat");
+        $email->addContent("text/plain", $campaign->content);
+        $email->addContent("text/html", "<strong>" . $campaign->content . "</strong>");
 
-        return response()->json(['message' => 'Campaign sent successfully']);
+        $sendgrid = new SendGrid(config('mail.mailers.sendgrid.api_key'));
+
+        try {
+            $response = $sendgrid->send($email);
+
+            if ($response->statusCode() != 202) {
+                Log::error('Sendgrid response error-log', ['response' => $response->body()]);
+                throw new Exception('Sendgrid error: ' . $response->body());
+            }
+
+            Log::info('Sendgrid response log', ['response' => $response->body()]);
+            $campaign->update(['status' => 'sent']);
+
+            return response()->json(['message' => 'Campaign sent successfully']);
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Failed to send campaign', 'error' => $e->getMessage()], 500);
+        }
     }
 }
 
