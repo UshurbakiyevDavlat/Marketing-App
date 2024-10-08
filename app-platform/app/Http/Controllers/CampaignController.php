@@ -142,6 +142,8 @@ class CampaignController extends Controller
             $email->addContent("text/plain", $campaign->content);
             $email->addContent("text/html", "<strong>" . $campaign->content . "</strong>");
 
+            $email->addCustomArg('campaign_id', "$campaign->id");
+
             try {
                 $response = $sendgrid->send($email);
 
@@ -155,12 +157,15 @@ class CampaignController extends Controller
                     'response' => $response->body()
                 ]);
 
-                EmailLog::create([
-                    'campaign_id' => $campaign->id,
-                    'email' => $subscriber->email,
-                    'status' => 'delivered',
-                    'event' => 'Email sent successfully'
-                ]);
+                EmailLog::updateOrCreate(
+                    [
+                        'campaign_id' => $campaign->id,
+                        'email' => $subscriber->email
+                    ],
+                    [
+                        'status' => 'delivered',
+                        'event' => 'Email sent successfully'
+                    ]);
             } catch (Exception $e) {
                 Log::error('Sendgrid exception', [
                     'subscriber' => $subscriber->email,
@@ -197,7 +202,6 @@ class CampaignController extends Controller
             if ($isAlreadyAttached) {
                 $alreadyAttachedSubscribers[] = $subscriberId;
             } else {
-                // Add to the list of new subscribers to be attached
                 $newSubscribers[] = $subscriberId;
             }
         }

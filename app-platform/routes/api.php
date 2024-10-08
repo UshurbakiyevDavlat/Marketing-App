@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\SubscriberController;
+use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 //Route::middleware('auth:sanctum')->group(function () { todo return when auth logic will be done
@@ -25,3 +26,5 @@ use Illuminate\Support\Facades\Route;
         });
     });
 //});
+
+Route::post('sendgrid/webhook', [WebhookController::class, 'handleWebhook']);

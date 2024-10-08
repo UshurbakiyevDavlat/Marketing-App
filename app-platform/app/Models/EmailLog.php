@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @method static create(array $array)
+ * @method static updateOrCreate(array $array, array $array1)
  */
 class EmailLog extends Model
 {
