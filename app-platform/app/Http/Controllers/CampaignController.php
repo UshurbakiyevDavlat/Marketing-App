@@ -3,23 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\Campaign;
+use App\Models\EmailLog;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use SendGrid;
+use SendGrid\Mail\Mail;
 
 class CampaignController extends Controller
 {
     /**
-     * @param Request $request
      * @return JsonResponse
      */
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
         $user = User::find(1);//todo $request->user();
-        $campaigns = $user->campaigns;
+
+        $campaigns = $user?->campaigns()->with(['subscribers' => function ($query) {
+            $query->select('subscribers.id', 'subscribers.email');
+        }])->get();
+
         return response()->json($campaigns);
     }
 
@@ -111,38 +115,102 @@ class CampaignController extends Controller
      */
     public function send(int $id): JsonResponse
     {
+        $user = User::find(1); // todo $request->user
         $campaign = Campaign::findOrFail($id);
+
+        if ($campaign->status === 'sent') {
+            throw new Exception('Campaign already sent.');
+        }
 
         if ($campaign->type !== 'email') {
             throw new Exception('Only email campaigns can be sent currently');
         }
 
-        //todo move to mail service
-        $email = new \SendGrid\Mail\Mail();
+        $subscribers = $campaign->subscribers;
 
-        $email->setFrom("dushurbakiev@gmail.com", "Davlat");
-        $email->setSubject($campaign->subject);
-        $email->addTo("davlatbek.ushurbakiyev@pinemelon.com", "Davlat");
-        $email->addContent("text/plain", $campaign->content);
-        $email->addContent("text/html", "<strong>" . $campaign->content . "</strong>");
-
-        $sendgrid = new SendGrid(config('mail.mailers.sendgrid.api_key'));
-
-        try {
-            $response = $sendgrid->send($email);
-
-            if ($response->statusCode() != 202) {
-                Log::error('Sendgrid response error-log', ['response' => $response->body()]);
-                throw new Exception('Sendgrid error: ' . $response->body());
-            }
-
-            Log::info('Sendgrid response log', ['response' => $response->body()]);
-            $campaign->update(['status' => 'sent']);
-
-            return response()->json(['message' => 'Campaign sent successfully']);
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Failed to send campaign', 'error' => $e->getMessage()], 500);
+        if ($subscribers->isEmpty()) {
+            return response()->json(['message' => 'No subscribers to send the campaign to'], 400);
         }
+
+        $sendgrid = new \SendGrid(config('mail.mailers.sendgrid.api_key'));
+
+        foreach ($subscribers as $subscriber) {
+            $email = new Mail();
+            $email->setFrom($user->email, $user->name);
+            $email->setSubject($campaign->subject);
+            $email->addTo($subscriber->email, $subscriber->name ?? 'Dear Subscriber');
+            $email->addContent("text/plain", $campaign->content);
+            $email->addContent("text/html", "<strong>" . $campaign->content . "</strong>");
+
+            try {
+                $response = $sendgrid->send($email);
+
+                if ($response->statusCode() != 202) {
+                    Log::error('Sendgrid response error-log', ['response' => $response->body()]);
+                    continue;
+                }
+
+                Log::info('Sendgrid response log', [
+                    'subscriber' => $subscriber->email,
+                    'response' => $response->body()
+                ]);
+
+                EmailLog::create([
+                    'campaign_id' => $campaign->id,
+                    'email' => $subscriber->email,
+                    'status' => 'delivered',
+                    'event' => 'Email sent successfully'
+                ]);
+            } catch (Exception $e) {
+                Log::error('Sendgrid exception', [
+                    'subscriber' => $subscriber->email,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        $campaign->update(['status' => 'sent']);
+
+        return response()->json(['message' => 'Campaign sent successfully']);
+    }
+
+    /**
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function attachSubscribers(Request $request, int $id): JsonResponse
+    {
+        $campaign = Campaign::findOrFail($id);
+
+        $validated = $request->validate([
+            'subscriber_ids' => 'required|array',
+            'subscriber_ids.*' => 'exists:subscribers,id',
+        ]);
+
+        $alreadyAttachedSubscribers = [];
+        $newSubscribers = [];
+
+        foreach ($validated['subscriber_ids'] as $subscriberId) {
+            $isAlreadyAttached = $campaign->subscribers()->where('subscribers.id', $subscriberId)->exists();
+
+            if ($isAlreadyAttached) {
+                $alreadyAttachedSubscribers[] = $subscriberId;
+            } else {
+                // Add to the list of new subscribers to be attached
+                $newSubscribers[] = $subscriberId;
+            }
+        }
+
+        if (!empty($newSubscribers)) {
+            $campaign->subscribers()->attach($newSubscribers);
+        }
+
+        return response()->json([
+            'message' => 'Subscribers attached successfully',
+            'already_was_attached' => $alreadyAttachedSubscribers,
+            'newly_attached' => $newSubscribers,
+        ]);
     }
 }
 

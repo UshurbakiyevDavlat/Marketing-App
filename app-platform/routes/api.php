@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Route;
             Route::get('/{id}', [CampaignController::class, 'show']);
             Route::put('/{id}', [CampaignController::class, 'update']);
             Route::delete('/{id}', [CampaignController::class, 'destroy']);
-            Route::post('/{id}/send', [CampaignController::class, 'send']); // Отправка кампании
+            Route::post('/{id}/send', [CampaignController::class, 'send']);
+            Route::post('/{id}/attach', [CampaignController::class, 'attachSubscribers']);
         });
 
         Route::group(['prefix' => 'subscribers'], function () {
