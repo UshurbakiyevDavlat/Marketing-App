@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @method static create(array $array)
  * @method static updateOrCreate(array $array, array $array1)
+ * @method static where(string $string, int $id)
+ * @method static whereHas(string $string, \Closure $param)
  */
 class EmailLog extends Model
 {
@@ -23,8 +25,13 @@ class EmailLog extends Model
         'event'
     ];
 
-    public function campaigns(): BelongsToMany
+    /**
+     * EmailLog принадлежит Campaign
+     * @return BelongsTo
+     */
+    public function campaign(): BelongsTo
     {
-        return $this->belongsToMany(Campaign::class, 'email_log_campaign');
+        return $this->belongsTo(Campaign::class, 'campaign_id');
     }
+
 }
