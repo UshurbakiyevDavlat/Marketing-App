@@ -15,6 +15,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property mixed $id
  * @property mixed $email
  * @property mixed $name
+ * @property mixed $role
  */
 class User extends Authenticatable
 {
@@ -54,6 +55,26 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Проверка, является ли пользователь администратором.
+     *
+     * @return bool
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Проверка, является ли пользователь обычным пользователем.
+     *
+     * @return bool
+     */
+    public function isUser(): bool
+    {
+        return $this->role === 'user';
     }
 
     /**
