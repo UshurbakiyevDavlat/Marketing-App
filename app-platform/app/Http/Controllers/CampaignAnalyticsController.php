@@ -46,7 +46,7 @@ class CampaignAnalyticsController extends Controller
      */
     public function getOverallAnalytics(): JsonResponse
     {
-        $user = User::find(1); //todo auth()->user();
+        $user = auth()->user();
 
         if (!$user instanceof User) {
             throw new Exception('User is not valid');

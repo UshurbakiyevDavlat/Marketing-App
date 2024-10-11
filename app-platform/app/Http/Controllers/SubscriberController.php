@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subscriber;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,7 +14,7 @@ class SubscriberController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = User::find(1);// todo $request->user();
+        $user = $request->user();
         $subscribers = $user->subscribers;
         return response()->json($subscribers);
     }
@@ -34,7 +33,7 @@ class SubscriberController extends Controller
         ]);
 
         $subscriber = Subscriber::create([
-            'user_id' => 1, //todo $request->user()->id,
+            'user_id' => $request->user()->getAuthIdentifier(),
             'email' => $validated['email'],
             'name' => $validated['name'],
             'tags' => json_encode($validated['tags']),

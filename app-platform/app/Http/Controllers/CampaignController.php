@@ -10,15 +10,22 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use SendGrid\Mail\Mail;
+use SendGrid\Mail\TypeException;
 
 class CampaignController extends Controller
 {
     /**
+     * @param Request $request
      * @return JsonResponse
+     * @throws Exception
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $user = User::find(1);//todo $request->user();
+        $user = $request->user();
+
+        if (!$user instanceof User) {
+            throw new Exception('User is not a valid');
+        }
 
         $campaigns = $user?->campaigns()->with(['subscribers' => function ($query) {
             $query->select('subscribers.id', 'subscribers.email');
@@ -43,7 +50,7 @@ class CampaignController extends Controller
         ]);
 
         $campaign = Campaign::create([
-            'user_id' => 1, //todo $request->user()->id,
+            'user_id' => $request->user()->getAuthIdentifier(),
             'name' => $validated['name'],
             'subject' => $validated['subject'],
             'content' => $validated['content'],
@@ -109,13 +116,20 @@ class CampaignController extends Controller
     }
 
     /**
+     * @param Request $request
      * @param int $id
      * @return JsonResponse
+     * @throws TypeException
      * @throws Exception
      */
-    public function send(int $id): JsonResponse
+    public function send(Request $request, int $id): JsonResponse
     {
-        $user = User::find(1); // todo $request->user
+        $user = $request->user();
+
+        if (!$user instanceof User) {
+            throw new Exception('User is not a valid');
+        }
+
         $campaign = Campaign::findOrFail($id);
 
         if ($campaign->status === 'sent') {
