@@ -9,12 +9,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use League\Csv\Exception;
-use League\Csv\InvalidArgument;
 use League\Csv\Reader;
 use League\Csv\Statement;
 use Illuminate\Support\Facades\DB;
-use League\Csv\SyntaxError;
-use League\Csv\UnavailableStream;
+use League\Csv\Exception as CsvException;
 
 class SubscriberController extends Controller
 {
@@ -95,9 +93,6 @@ class SubscriberController extends Controller
      * @param Request $request
      * @return JsonResponse
      * @throws Exception
-     * @throws InvalidArgument
-     * @throws SyntaxError
-     * @throws UnavailableStream
      */
     public function import(Request $request): JsonResponse
     {
@@ -110,12 +105,10 @@ class SubscriberController extends Controller
 
             $file = $request->file('file');
             $path = $file->store('/imports', ['disk' => 'public']);
-
             $filePath = public_path('storage/' . $path);
 
-
             $csv = Reader::createFromPath($filePath, 'r');
-            $csv->setHeaderOffset(0); // Если первая строка содержит заголовки
+            $csv->setHeaderOffset(0);
 
             $stmt = (new Statement())->limit(1000); // Ограничиваем чтение файла для тестирования
             $records = $stmt->process($csv);
@@ -123,14 +116,18 @@ class SubscriberController extends Controller
             $errors = [];
             $subscribers = [];
 
-            foreach ($records as $record) {
+            foreach ($records as $index => $record) {
                 $validator = Validator::make($record, [
                     'email' => 'required|email|unique:subscribers,email',
                     'name' => 'required|string|max:255',
                 ]);
 
                 if ($validator->fails()) {
-                    $errors[] = $validator->errors();
+                    $errors[] = [
+                        'row' => $index + 1,
+                        'email' => $record['email'] ?? 'N/A',
+                        'errors' => $validator->errors()->all()
+                    ];
                 } else {
                     $subscribers[] = [
                         'email' => $record['email'],
@@ -138,23 +135,42 @@ class SubscriberController extends Controller
                         'created_at' => now(),
                         'updated_at' => now(),
                         'user_id' => $request->user()->getAuthIdentifier(),
+                        'tags' => isset($record['tags']) ? json_encode($record['tags']) : null,
                     ];
                 }
             }
 
             if (!empty($errors)) {
                 Log::error('Validation failed', ['errors' => $errors]);
-                throw new \Exception(implode('|' . PHP_EOL, $errors), 422);
+                Storage::disk('public')->delete($path);
+
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => $errors,
+                ], 422);
             }
 
             DB::beginTransaction();
-
             DB::table('subscribers')->insert($subscribers);
+
             Storage::disk('public')->delete($path);
 
             DB::commit();
 
             return response()->json(['message' => 'Subscribers imported successfully'], 201);
+
+        } catch (CsvException $e) {
+            if ($path) {
+                Storage::disk('public')->delete($path);
+            }
+
+            DB::rollBack();
+            Log::error('CSV processing error: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'CSV processing error',
+                'error' => $e->getMessage(),
+            ], 500);
         } catch (\Exception $e) {
             if ($path) {
                 Storage::disk('public')->delete($path);
@@ -163,7 +179,10 @@ class SubscriberController extends Controller
             DB::rollBack();
             Log::error('Import subscribers error: ' . $e->getMessage());
 
-            throw $e;
+            return response()->json([
+                'message' => 'Failed to import subscribers',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 }
