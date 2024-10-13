@@ -23,6 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/{id}/attach', [CampaignController::class, 'attachSubscribers']);
             });
 
+            Route::post('/{id}/schedule', [CampaignController::class, 'schedule']);
             Route::post('/{id}/send', [CampaignController::class, 'send']);
 
             Route::group(['prefix' => 'analytics'], function () {

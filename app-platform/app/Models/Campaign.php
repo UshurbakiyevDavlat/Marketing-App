@@ -10,6 +10,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @method static create(array $array)
  * @method static findOrFail($id)
+ * @property mixed $id
+ * @property mixed $subscribers
+ * @property mixed $subject
+ * @property mixed $content
+ * @property mixed $status
+ * @property mixed $type
  */
 class Campaign extends Model
 {

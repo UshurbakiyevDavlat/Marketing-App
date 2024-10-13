@@ -2,18 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendCampaignEmails;
 use App\Models\Campaign;
-use App\Models\EmailLog;
 use App\Models\User;
+use App\Services\CampaignEmailService;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use SendGrid\Mail\Mail;
-use SendGrid\Mail\TypeException;
+use Illuminate\Support\Facades\Queue;
 
 class CampaignController extends Controller
 {
+    protected CampaignEmailService $campaignEmailService;
+
+    public function __construct(CampaignEmailService $campaignEmailService)
+    {
+        $this->campaignEmailService = $campaignEmailService;
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse
@@ -56,7 +65,7 @@ class CampaignController extends Controller
             'content' => $validated['content'],
             'type' => $validated['type'],
             'status' => 'draft',
-            'scheduled_at' => $validated['scheduled_at'],
+            'scheduled_at' => $validated['scheduled_at'] ?? null,
         ]);
 
         return response()->json($campaign, 201);
@@ -116,10 +125,11 @@ class CampaignController extends Controller
     }
 
     /**
+     * Отправка кампании.
+     *
      * @param Request $request
      * @param int $id
      * @return JsonResponse
-     * @throws TypeException
      * @throws Exception
      */
     public function send(Request $request, int $id): JsonResponse
@@ -131,64 +141,7 @@ class CampaignController extends Controller
         }
 
         $campaign = Campaign::findOrFail($id);
-
-        if ($campaign->status === 'sent') {
-            throw new Exception('Campaign already sent.');
-        }
-
-        if ($campaign->type !== 'email') {
-            throw new Exception('Only email campaigns can be sent currently');
-        }
-
-        $subscribers = $campaign->subscribers;
-
-        if ($subscribers->isEmpty()) {
-            return response()->json(['message' => 'No subscribers to send the campaign to'], 400);
-        }
-
-        $sendgrid = new \SendGrid(config('mail.mailers.sendgrid.api_key'));
-
-        foreach ($subscribers as $subscriber) {
-            $email = new Mail();
-            $email->setFrom($user->email, $user->name);
-            $email->setSubject($campaign->subject);
-            $email->addTo($subscriber->email, $subscriber->name ?? 'Dear Subscriber');
-            $email->addContent("text/plain", $campaign->content);
-            $email->addContent("text/html", "<strong>" . $campaign->content . "</strong>");
-
-            $email->addCustomArg('campaign_id', "$campaign->id");
-
-            try {
-                $response = $sendgrid->send($email);
-
-                if ($response->statusCode() != 202) {
-                    Log::error('Sendgrid response error-log', ['response' => $response->body()]);
-                    continue;
-                }
-
-                Log::info('Sendgrid response log', [
-                    'subscriber' => $subscriber->email,
-                    'response' => $response->body()
-                ]);
-
-                EmailLog::updateOrCreate(
-                    [
-                        'campaign_id' => $campaign->id,
-                        'email' => $subscriber->email
-                    ],
-                    [
-                        'status' => 'delivered',
-                        'event' => 'Email sent successfully'
-                    ]);
-            } catch (Exception $e) {
-                Log::error('Sendgrid exception', [
-                    'subscriber' => $subscriber->email,
-                    'error' => $e->getMessage()
-                ]);
-            }
-        }
-
-        $campaign->update(['status' => 'sent']);
+        $this->campaignEmailService->sendCampaign($campaign, $user);
 
         return response()->json(['message' => 'Campaign sent successfully']);
     }
@@ -229,6 +182,50 @@ class CampaignController extends Controller
             'already_was_attached' => $alreadyAttachedSubscribers,
             'newly_attached' => $newSubscribers,
         ]);
+    }
+
+    /**
+     * Запланировать отправку кампании.
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     * @throws Exception
+     */
+    public function schedule(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user instanceof User) {
+            throw new Exception('User is not a valid');
+        }
+
+        $validated = $request->validate([
+            'scheduled_at' => 'required|date|after:now',
+        ]);
+
+        $campaign = Campaign::findOrFail($id);
+
+        DB::beginTransaction();
+
+        try {
+            $campaign->update([
+                'scheduled_at' => $validated['scheduled_at'],
+                'status' => 'scheduled',
+            ]);
+
+            $scheduledAt = Carbon::parse($campaign->scheduled_at);
+
+            Queue::later($scheduledAt, new SendCampaignEmails($campaign, $user, $this->campaignEmailService));
+            DB::commit();
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Error sending campaign emails: ' . $e->getMessage());
+            throw $e;
+        }
+
+        return response()->json(['message' => 'Campaign scheduled successfully'], 200);
     }
 }
 
