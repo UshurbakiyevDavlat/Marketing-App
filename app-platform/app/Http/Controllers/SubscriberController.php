@@ -144,7 +144,7 @@ class SubscriberController extends Controller
 
             if (!empty($errors)) {
                 Log::error('Validation failed', ['errors' => $errors]);
-                throw new \Exception('Validation failed', 422);
+                throw new \Exception(implode('|' . PHP_EOL, $errors), 422);
             }
 
             DB::beginTransaction();
