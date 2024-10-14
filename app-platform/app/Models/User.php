@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -16,6 +17,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property mixed $email
  * @property mixed $name
  * @property mixed $role
+ * @property mixed $subscriptions
+ * @property mixed $activeSubscription
  */
 class User extends Authenticatable
 {
@@ -31,7 +34,6 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
-        'subscription_plan'
     ];
 
     /**
@@ -91,5 +93,21 @@ class User extends Authenticatable
     public function subscribers(): HasMany
     {
         return $this->hasMany(Subscriber::class);
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * @return HasOne
+     */
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)->whereNull('ends_at');
     }
 }
