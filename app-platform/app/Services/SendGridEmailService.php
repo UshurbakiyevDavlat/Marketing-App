@@ -23,8 +23,6 @@ class SendGridEmailService implements EmailServiceInterface
      * Отправка кампании через SendGrid.
      *
      * @param array $recipients
-     * @param string $subject
-     * @param string $content
      * @param Campaign $campaign
      * @param string $senderEmail
      * @param string $senderName
@@ -33,8 +31,6 @@ class SendGridEmailService implements EmailServiceInterface
      */
     public function sendCampaign(
         array    $recipients,
-        string   $subject,
-        string   $content,
         Campaign $campaign,
         string   $senderEmail,
         string   $senderName,
@@ -45,10 +41,10 @@ class SendGridEmailService implements EmailServiceInterface
         foreach ($recipients as $subscriber) {
             $email = new Mail();
             $email->setFrom($senderEmail, $senderName);
-            $email->setSubject($subject);
+            $email->setSubject($campaign->subject);
             $email->addTo($subscriber['email'], $subscriber['name'] ?? 'Dear Subscriber');
-            $email->addContent("text/plain", $content);
-            $email->addContent("text/html", "<strong>" . $content . "</strong>");
+            $email->addContent("text/plain", $campaign->content);
+            $email->addContent("text/html", "<strong>" . $campaign->content . "</strong>");
 
             $email->addCustomArg('campaign_id', "$campaign->id");
 

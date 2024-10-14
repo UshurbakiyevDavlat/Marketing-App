@@ -10,8 +10,6 @@ interface EmailServiceInterface
      * Отправка кампании.
      *
      * @param array $recipients
-     * @param string $subject
-     * @param string $content
      * @param Campaign $campaign
      * @param string $senderEmail
      * @param string $senderName
@@ -19,8 +17,6 @@ interface EmailServiceInterface
      */
     public function sendCampaign(
         array    $recipients,
-        string   $subject,
-        string   $content,
         Campaign $campaign,
         string   $senderEmail,
         string   $senderName

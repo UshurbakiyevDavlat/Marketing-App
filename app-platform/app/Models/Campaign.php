@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property mixed $content
  * @property mixed $status
  * @property mixed $type
+ * @property mixed $variant
  */
 class Campaign extends Model
 {
@@ -29,6 +30,7 @@ class Campaign extends Model
         'type',
         'status',
         'scheduled_at',
+        'variant'
     ];
 
     /**

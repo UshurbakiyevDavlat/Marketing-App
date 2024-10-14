@@ -227,5 +227,67 @@ class CampaignController extends Controller
 
         return response()->json(['message' => 'Campaign scheduled successfully'], 200);
     }
+
+    /**
+     * Создать кампанию с A/B тестированием и сразу отправить.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     * @throws Exception
+     */
+    public function createABTest(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user instanceof User) {
+            throw new Exception('User is incorrect');
+        }
+
+        $validated = $request->validate([
+            'subject_a' => 'required|string|max:255',
+            'content_a' => 'required|string',
+            'subject_b' => 'required|string|max:255',
+            'content_b' => 'required|string',
+            'subscriber_ids' => 'required|array',
+            'subscriber_ids.*' => 'exists:subscribers,id',
+            'scheduled_at' => 'nullable|date|after:now',
+        ]);
+
+        //todo на будущее рассмотреть мб больше разных вариантов
+        $campaignA = Campaign::create([
+            'name' => $request->input('name') . ' (Variant A)',
+            'subject' => $validated['subject_a'],
+            'content' => $validated['content_a'],
+            'status' => 'draft',
+            'variant' => 'A',
+            'user_id' => $user->id,
+        ]);
+
+        $campaignB = Campaign::create([
+            'name' => $request->input('name') . ' (Variant B)',
+            'subject' => $validated['subject_b'],
+            'content' => $validated['content_b'],
+            'status' => 'draft',
+            'variant' => 'B',
+            'user_id' => $user->id,
+        ]);
+
+        $subscriberIds = $validated['subscriber_ids'];
+        $campaignA->subscribers()->attach($subscriberIds);
+        $campaignB->subscribers()->attach($subscriberIds);
+
+        if (isset($validated['scheduled_at'])) {
+            Queue::later(Carbon::parse($validated['scheduled_at']), new SendCampaignEmails($campaignA, $user, $this->campaignEmailService));
+            Queue::later(Carbon::parse($validated['scheduled_at']), new SendCampaignEmails($campaignB, $user, $this->campaignEmailService));
+        } else {
+            $this->campaignEmailService->sendABTest($campaignA, $campaignB, $user);
+        }
+
+        return response()->json([
+            'message' => 'A/B test created and sent successfully',
+            'campaign_a' => $campaignA,
+            'campaign_b' => $campaignB,
+        ], 201);
+    }
 }
 

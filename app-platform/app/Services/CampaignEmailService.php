@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Campaign;
+use App\Models\EmailLog;
 use App\Models\User;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class CampaignEmailService
 {
@@ -41,11 +43,49 @@ class CampaignEmailService
 
         $this->emailService->sendCampaign(
             $subscribers,
-            $campaign->subject,
-            $campaign->content,
             $campaign,
             $user->email,
             $user->name,
         );
     }
+
+    /**
+     * Отправка кампании с A/B тестированием.
+     *
+     * @param Campaign $campaignA
+     * @param Campaign $campaignB
+     * @param User $user
+     * @return void
+     */
+    public function sendABTest(Campaign $campaignA, Campaign $campaignB, User $user): void
+    {
+        $subscribers = $campaignA->subscribers;
+
+        foreach ($subscribers as $index => $subscriber) {
+            $campaign = ($index % 2 === 0) ? $campaignA : $campaignB;
+
+            $this->emailService->sendCampaign([$subscriber], $campaign, $user->email, $user->name);
+
+            EmailLog::updateOrCreate(
+                [
+                    'campaign_id' => $campaign->id,
+                    'email' => $subscriber->email,
+                ],
+                [
+                    'status' => 'delivered',
+                    'event' => "Email sent to variant " . $campaign->variant,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+
+            Log::info("A/B test email sent", [
+                'subscriber' => $subscriber->email,
+                'campaign_variant' => $campaign->variant
+            ]);
+        }
+
+        Log::info('A/B test emails sent successfully');
+    }
+
 }
