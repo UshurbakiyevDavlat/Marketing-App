@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Models\User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -111,7 +112,7 @@ class SubscriptionController extends Controller
                 $stripeSubscription->cancel();
 
                 $subscription->update([
-                    'ends_at' => now(), //todo maybe at the end of end subscription then
+                    'ends_at' => Carbon::createFromTimestamp($stripeSubscription->current_period_end),
                     'cancel_reason' => $request->input('reason'),
                 ]);
 
