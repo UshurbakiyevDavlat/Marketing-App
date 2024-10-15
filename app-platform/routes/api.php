@@ -39,8 +39,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/{id}', [SubscriberController::class, 'destroy']);
         });
         Route::group(['prefix' => 'subscription'], function (){
+            Route::get('/active', [SubscriptionController::class, 'getActiveSubscription']);
+            Route::get('/history', [SubscriptionController::class, 'getSubscriptionHistory']);
             Route::post('/create', [SubscriptionController::class, 'createSubscription']);
             Route::post('/cancel', [SubscriptionController::class, 'cancelSubscription']);
+            Route::post('/refund', [SubscriptionController::class, 'refund']);
         });
     });
 

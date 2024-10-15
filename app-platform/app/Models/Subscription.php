@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property mixed $stripe_subscription_id
+ * @property mixed $user_id
+ * @method static create(array $array)
+ * @method static find(mixed $subscription_id)
+ */
 class Subscription extends Model
 {
     use HasFactory;
