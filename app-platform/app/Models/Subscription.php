@@ -22,7 +22,7 @@ class Subscription extends Model
         'user_id',
         'stripe_subscription_id',
         'stripe_customer_id',
-        'plan',
+        'plan_id',
         'trial_ends_at',
         'ends_at',
         'cancel_reason',

@@ -12,10 +12,10 @@ interface PaymentServiceInterface
      *
      * @param User $user
      * @param string $paymentMethod
-     * @param string $plan
+     * @param int $plan_id
      * @return Subscription
      */
-    public function createSubscription(User $user, string $paymentMethod, string $plan): Subscription;
+    public function createSubscription(User $user, string $paymentMethod, int $plan_id): Subscription;
 
     /**
      * Отменить подписку пользователя.

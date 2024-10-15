@@ -20,13 +20,12 @@ class PaymentService
      *
      * @param User $user
      * @param string $paymentMethod
-     * @param string $plan
+     * @param int $plan_id
      * @return Subscription
-     * @throws Exception
      */
-    public function createSubscription(User $user, string $paymentMethod, string $plan): Subscription
+    public function createSubscription(User $user, string $paymentMethod, int $plan_id): Subscription
     {
-        return $this->paymentService->createSubscription($user, $paymentMethod, $plan);
+        return $this->paymentService->createSubscription($user, $paymentMethod, $plan_id);
     }
 
     /**
@@ -53,22 +52,5 @@ class PaymentService
     public function refund(Subscription $subscription, float $amount): bool
     {
         return $this->paymentService->refund($subscription, $amount);
-    }
-
-    /**
-     * @param string $plan
-     * @return float
-     */
-    public function getPlanAmount(string $plan): float
-    {
-        //todo move it somewhere, in db table for example
-        $plans = [
-            'free' => 0.0,
-            'basic' => 15.0,
-            'pro' => 50.0,
-            'enterprise' => 200.0,
-        ];
-
-        return $plans[$plan];
     }
 }

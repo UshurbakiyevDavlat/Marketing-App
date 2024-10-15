@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Carbon\Carbon;
 use Stripe\Customer;
@@ -28,12 +29,20 @@ class StripePaymentService implements PaymentServiceInterface
      *
      * @param User $user
      * @param string $paymentMethod
-     * @param string $plan
+     * @param int $plan_id
      * @return Subscription
      * @throws Exception
      */
-    public function createSubscription(User $user, string $paymentMethod, string $plan): Subscription
+    public function createSubscription(User $user, string $paymentMethod, int $plan_id): Subscription
     {
+        $plan = SubscriptionPlan::where('id', $plan_id)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$plan instanceof SubscriptionPlan) {
+            throw new Exception('Plan is incorrect');
+        }
+
         DB::beginTransaction();
         try {
             $customer = Customer::create([
@@ -46,7 +55,7 @@ class StripePaymentService implements PaymentServiceInterface
 
             $stripeSubscription = StripeSubscription::create([
                 'customer' => $customer->id,
-                'items' => [['price' => $this->getPlanPriceId($plan)]],
+                'items' => [['price' => $this->getPlanPriceId($plan->name)]],
                 'expand' => ['latest_invoice.payment_intent'],
             ]);
 
@@ -54,12 +63,12 @@ class StripePaymentService implements PaymentServiceInterface
                 'user_id' => $user->id,
                 'stripe_subscription_id' => $stripeSubscription->id,
                 'stripe_customer_id' => $customer->id,
-                'plan' => $plan,
+                'plan_id' => $plan_id,
             ]);
 
             Payment::create([
                 'user_id' => $user->id,
-                'amount' => $this->getPlanAmount($plan),
+                'amount' => $plan->price,
                 'status' => 'completed',
                 'transaction_type' => 'income',
             ]);
@@ -174,28 +183,10 @@ class StripePaymentService implements PaymentServiceInterface
     private function getPlanPriceId(string $plan): string
     {
         $plans = [
-            'free' => 'price_1Q9rsbKjxe7OpAXXPdFVz756',
-            'basic' => 'price_1Q9ruqKjxe7OpAXXVcUIgndD',
-            'pro' => 'price_1Q9rwCKjxe7OpAXXwWLfA0kn',
-            'enterprise' => 'price_1Q9rx2Kjxe7OpAXXMHZzacYf',
-        ];
-
-        return $plans[$plan];
-    }
-
-    /**
-     * Получение суммы для плана.
-     *
-     * @param string $plan
-     * @return float
-     */
-    public function getPlanAmount(string $plan): float
-    {
-        $plans = [
-            'free' => 0.0,
-            'basic' => 15.0,
-            'pro' => 50.0,
-            'enterprise' => 200.0,
+            'Free' => 'price_1Q9rsbKjxe7OpAXXPdFVz756',
+            'Basic' => 'price_1Q9ruqKjxe7OpAXXVcUIgndD',
+            'Pro' => 'price_1Q9rwCKjxe7OpAXXwWLfA0kn',
+            'Enterprise' => 'price_1Q9rx2Kjxe7OpAXXMHZzacYf',
         ];
 
         return $plans[$plan];

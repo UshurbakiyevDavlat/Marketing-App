@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\PaymentService;
@@ -69,19 +68,16 @@ class SubscriptionController extends Controller
 
         $validated = $request->validate([
             'payment_method' => 'required|string',
-            'plan' => 'required|string|in:free,basic,pro,enterprise',
+            'plan_id' => 'required|exists:subscription_plans,id',
         ]);
 
         DB::beginTransaction();
         try {
-            $subscription = $this->paymentService->createSubscription($user, $validated['payment_method'], $validated['plan']);
-
-            Payment::create([
-                'user_id' => $user->id,
-                'amount' => $this->paymentService->getPlanAmount($validated['plan']),
-                'status' => 'completed',
-                'transaction_type' => 'income',
-            ]);
+            $subscription = $this->paymentService->createSubscription(
+                $user,
+                $validated['payment_method'],
+                $validated['plan_id']
+            );
 
             DB::commit();
 
