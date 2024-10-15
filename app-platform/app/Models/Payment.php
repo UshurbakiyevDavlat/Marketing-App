@@ -19,6 +19,7 @@ class Payment extends Model
         'user_id',
         'amount',
         'status',
+        'transaction_type'
     ];
 
     /**

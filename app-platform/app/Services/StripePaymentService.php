@@ -132,16 +132,25 @@ class StripePaymentService implements PaymentServiceInterface
 
         DB::beginTransaction();
         try {
-            Refund::create([
+            $stripeRefund = Refund::create([ //todo maybe need to make an alias
                 'charge' => $chargeId,
                 'amount' => $amount * 100,  // В Stripe сумма указывается в центах
             ]);
+
+            $refund = \App\Models\Refund::create(
+                [
+                    'provider_refund_id' => $stripeRefund->id,
+                    'provider' => 'stripe',
+                    'amount' => $amount,
+                ]
+            );
 
             Payment::create([
                 'user_id' => $subscription->user_id,
                 'amount' => $amount,
                 'status' => 'completed',
                 'transaction_type' => 'outcome',
+                'refund_id' => $refund->id,
             ]);
 
             DB::commit();

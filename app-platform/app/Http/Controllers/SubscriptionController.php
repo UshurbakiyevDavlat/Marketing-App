@@ -119,14 +119,6 @@ class SubscriptionController extends Controller
         DB::beginTransaction();
         try {
             $this->paymentService->cancelSubscription($subscription, $cancelReason);
-
-            Payment::create([
-                'user_id' => $user->id,
-                'amount' => 0,
-                'status' => 'completed',
-                'transaction_type' => 'outcome',
-            ]);
-
             DB::commit();
 
             Log::info('Subscription canceled successfully for user: ' . $user->id, ['subscription' => $subscription]);
@@ -165,13 +157,6 @@ class SubscriptionController extends Controller
         DB::beginTransaction();
         try {
             $this->paymentService->refund($subscription, $validated['amount']);
-
-            Payment::create([
-                'user_id' => $user->id,
-                'amount' => $validated['amount'],
-                'status' => 'completed',
-                'transaction_type' => 'outcome',
-            ]);
 
             DB::commit();
 
