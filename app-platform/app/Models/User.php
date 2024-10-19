@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -109,5 +110,57 @@ class User extends Authenticatable
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->whereNull('ends_at');
+    }
+
+    /**
+     * @return SubscriptionPlan|null
+     */
+    public function currentPlan(): SubscriptionPlan|null
+    {
+        return $this->activeSubscription?->plan;
+    }
+
+    /**
+     * @param string $featureName
+     * @return bool
+     */
+    public function featureEnabled(string $featureName): bool
+    {
+        $plan = $this->currentPlan();
+
+        if (!$plan instanceof SubscriptionPlan) {
+            return false;
+        }
+
+        $feature = $plan->features()->where('feature_name', $featureName)->first();
+
+        if ($feature && isset($feature->limits['active'])) {
+            return (bool)$feature->limits['active'];
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $featureName
+     * @param string $limitKey
+     * @return false|mixed|null
+     * @throws Exception
+     */
+    public function getFeatureLimit(string $featureName, string $limitKey): mixed
+    {
+        $plan = $this->currentPlan();
+
+        if (!$plan instanceof SubscriptionPlan) {
+            return false;
+        }
+
+        $feature = $plan->features()->where('feature_name', $featureName)->first();
+
+        if (!$feature instanceof PlanFeature){
+            throw new Exception('There is no such feature in current plan');
+        }
+
+        return $feature->limits[$limitKey] ?? null;
     }
 }

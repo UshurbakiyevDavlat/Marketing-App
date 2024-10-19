@@ -35,4 +35,12 @@ class Subscription extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * @return BelongsTo
+     */
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPlan::class);
+    }
 }

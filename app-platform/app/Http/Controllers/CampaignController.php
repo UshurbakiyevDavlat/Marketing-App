@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SendCampaignEmails;
 use App\Models\Campaign;
+use App\Models\PlanFeature;
 use App\Models\User;
 use App\Services\CampaignEmailService;
 use Carbon\Carbon;
@@ -46,9 +47,15 @@ class CampaignController extends Controller
     /**
      * @param Request $request
      * @return JsonResponse
+     * @throws Exception
      */
     public function store(Request $request): JsonResponse
     {
+        $user = $request->user();
+
+        if (!$user instanceof User) {
+            throw new Exception('User is not a valid');
+        }
         // todo add validation request class and validate there
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -58,8 +65,19 @@ class CampaignController extends Controller
             'scheduled_at' => 'nullable|date',
         ]);
 
+        if (!$user->featureEnabled('subscriber_management')) {
+            return response()->json(['error' => 'Subscriber_management  is not available on your current plan.'], 403);
+        }
+
+        $subscriberLimit = $user->getFeatureLimit('subscriber_management', 'subscriber_limit');
+        $currentSubscriberCount = $user->subscribers()->count();
+
+        if ($subscriberLimit !== PlanFeature::EMAIL_LIMIT_UNLIM && $currentSubscriberCount >= $subscriberLimit) {
+            return response()->json(['error' => 'Subscriber limit reached. Upgrade your plan for more subscribers.'], 403);
+        }
+
         $campaign = Campaign::create([
-            'user_id' => $request->user()->getAuthIdentifier(),
+            'user_id' => $user->id,
             'name' => $validated['name'],
             'subject' => $validated['subject'],
             'content' => $validated['content'],
@@ -138,6 +156,17 @@ class CampaignController extends Controller
 
         if (!$user instanceof User) {
             throw new Exception('User is not a valid');
+        }
+
+        if (!$user->featureEnabled('email_sending')) {
+            return response()->json(['error' => 'Email sending is not available on your current plan.'], 403);
+        }
+
+        $emailLimit = $user->getFeatureLimit('email_sending', 'email_limit');
+        $sentEmails = $this->getSentEmailsCount($user->id);
+
+        if ($emailLimit !== PlanFeature::EMAIL_LIMIT_UNLIM && $sentEmails >= $emailLimit) {
+            return response()->json(['error' => 'Email limit reached. Upgrade your plan for more emails.'], 403);
         }
 
         $campaign = Campaign::findOrFail($id);
@@ -243,6 +272,10 @@ class CampaignController extends Controller
             throw new Exception('User is incorrect');
         }
 
+        if (!$user->featureEnabled('ab_testing')) {
+            return response()->json(['error' => 'A/B Testing is not available on your current plan.'], 403);
+        }
+
         $validated = $request->validate([
             'subject_a' => 'required|string|max:255',
             'content_a' => 'required|string',
@@ -288,6 +321,18 @@ class CampaignController extends Controller
             'campaign_a' => $campaignA,
             'campaign_b' => $campaignB,
         ], 201);
+    }
+
+    /**
+     * todo move to somewhere else
+     * @param int $userId
+     * @return int
+     */
+    private function getSentEmailsCount(int $userId): int
+    {
+        return Campaign::where('user_id', $userId)
+            ->where('status', 'sent')
+            ->sum('id');
     }
 }
 

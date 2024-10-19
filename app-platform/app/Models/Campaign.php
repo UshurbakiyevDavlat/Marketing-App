@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @method static create(array $array)
  * @method static findOrFail($id)
+ * @method static where(string $string, $userId)
  * @property mixed $id
  * @property mixed $subscribers
  * @property mixed $subject

@@ -14,6 +14,8 @@ class PlanFeature extends Model
 
     protected $fillable = ['plan_id', 'feature_name', 'limits'];
 
+    const string EMAIL_LIMIT_UNLIM = 'unlimited';
+
     /**
      * @return BelongsTo
      */
