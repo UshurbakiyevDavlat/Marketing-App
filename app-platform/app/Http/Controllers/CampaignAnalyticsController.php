@@ -3,21 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Campaign;
-use App\Models\EmailLog;
 use App\Models\User;
+use App\Services\CampaignEmailService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 
 class CampaignAnalyticsController extends Controller
 {
-    const string RAW_AGGREGATE_METRIC_CONDITION = '
-        COUNT(*) as total,
-        SUM(CASE WHEN status = "delivered" THEN 1 ELSE 0 END) as delivered,
-        SUM(CASE WHEN status = "opened" THEN 1 ELSE 0 END) as opened,
-        SUM(CASE WHEN status = "clicked" THEN 1 ELSE 0 END) as clicked,
-        SUM(CASE WHEN status = "unsubscribed" THEN 1 ELSE 0 END) as unsubscribed,
-        SUM(CASE WHEN status = "bounced" THEN 1 ELSE 0 END) as bounced
-    ';
+    public CampaignEmailService $campaignEmailService;
+
+    public function __construct(CampaignEmailService $campaignEmailService)
+    {
+        $this->campaignEmailService = $campaignEmailService;
+    }
 
     /**
      * Получение аналитики для конкретной кампании
@@ -29,7 +27,7 @@ class CampaignAnalyticsController extends Controller
     public function getCampaignAnalytics(int $id): JsonResponse
     {
         $campaign = Campaign::findOrFail($id);
-        $metrics = $this->getMetricsForCampaign($campaign->id);
+        $metrics = $this->campaignEmailService->getMetricsForCampaign($campaign->id);
 
         if (is_null($metrics)) {
             return $this->emptyMetricsResponse($id);
@@ -52,43 +50,13 @@ class CampaignAnalyticsController extends Controller
             throw new Exception('User is not valid');
         }
 
-        $metrics = $this->getMetricsForUser($user->id);
+        $metrics = $this->campaignEmailService->getMetricsForUser($user->id);
 
         if (is_null($metrics)) {
             return $this->emptyMetricsResponse();
         }
 
         return $this->formatMetricsResponse($metrics);
-    }
-
-    /**
-     * Получение метрик для пользователя
-     *
-     * @param int $userId
-     * @return array|null
-     */
-    private function getMetricsForUser(int $userId): ?array
-    {
-        return EmailLog::whereHas('campaign', function ($query) use ($userId) {
-            $query->where('user_id', $userId);
-        })
-            ->selectRaw(self::RAW_AGGREGATE_METRIC_CONDITION)
-            ->first()
-            ?->toArray();
-    }
-
-    /**
-     * Получение метрик для конкретной кампании
-     *
-     * @param int $campaignId
-     * @return array|null
-     */
-    private function getMetricsForCampaign(int $campaignId): ?array
-    {
-        return EmailLog::where('campaign_id', $campaignId)
-            ->selectRaw(self::RAW_AGGREGATE_METRIC_CONDITION)
-            ->first()
-            ?->toArray();
     }
 
     /**
@@ -176,15 +144,11 @@ class CampaignAnalyticsController extends Controller
      */
     public function determineABTestWinner(int $campaignAId, int $campaignBId): JsonResponse
     {
-        $campaignAMetrics = $this->getMetricsForCampaign($campaignAId);
-        $campaignBMetrics = $this->getMetricsForCampaign($campaignBId);
+        $resultData = $this->campaignEmailService->determineABTestWinner($campaignAId, $campaignBId);
 
-        if (!$campaignAMetrics || !$campaignBMetrics) {
-            return response()->json(['error' => 'Unable to retrieve metrics for one or both campaigns.'], 404);
-        }
-
-        // Определяем победителя на основе кликов (приоритет) и открытий
-        $winner = $this->compareMetrics($campaignAMetrics, $campaignBMetrics);
+        $campaignAMetrics = $resultData['campaignAMetrics'];
+        $campaignBMetrics = $resultData['campaignBMetrics'];
+        $winner = $resultData['winner'];
 
         return response()->json([
             'campaign_a' => $campaignAMetrics,
@@ -192,31 +156,4 @@ class CampaignAnalyticsController extends Controller
             'winner' => $winner,
         ]);
     }
-
-    /**
-     * Сравнить метрики двух кампаний и определить победителя.
-     *
-     * @param array $campaignAMetrics
-     * @param array $campaignBMetrics
-     * @return string
-     */
-    private function compareMetrics(array $campaignAMetrics, array $campaignBMetrics): string
-    {
-        //clicks have more priority than opened
-        if ($campaignAMetrics['clicked'] > $campaignBMetrics['clicked']) {
-            return 'A';
-        } elseif ($campaignAMetrics['clicked'] < $campaignBMetrics['clicked']) {
-            return 'B';
-        }
-
-        //use opened rate only if click rate has draw between campaigns
-        if ($campaignAMetrics['opened'] > $campaignBMetrics['opened']) {
-            return 'A';
-        } elseif ($campaignAMetrics['opened'] < $campaignBMetrics['opened']) {
-            return 'B';
-        }
-
-        return 'Draw';
-    }
-
 }

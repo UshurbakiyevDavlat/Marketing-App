@@ -6,6 +6,7 @@ use App\Jobs\SendCampaignEmails;
 use App\Models\Campaign;
 use App\Models\PlanFeature;
 use App\Models\User;
+use App\Notifications\CampaignCompleteNotification;
 use App\Services\CampaignEmailService;
 use Carbon\Carbon;
 use Exception;
@@ -171,6 +172,8 @@ class CampaignController extends Controller
 
         $campaign = Campaign::findOrFail($id);
         $this->campaignEmailService->sendCampaign($campaign, $user);
+
+        $user->notify(new CampaignCompleteNotification($campaign));
 
         return response()->json(['message' => 'Campaign sent successfully']);
     }

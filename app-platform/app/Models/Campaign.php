@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property mixed $status
  * @property mixed $type
  * @property mixed $variant
+ * @property mixed $name
  */
 class Campaign extends Model
 {
@@ -31,7 +33,8 @@ class Campaign extends Model
         'type',
         'status',
         'scheduled_at',
-        'variant'
+        'variant',
+        'is_winner',
     ];
 
     /**
@@ -48,6 +51,14 @@ class Campaign extends Model
     public function emailLogs(): HasMany
     {
         return $this->hasMany(EmailLog::class);
+    }
+
+    /**
+     * @return BelongsTo
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }
 
