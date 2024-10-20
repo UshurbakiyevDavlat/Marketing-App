@@ -166,4 +166,57 @@ class CampaignAnalyticsController extends Controller
     {
         return $total > 0 ? round(($part / $total) * 100, 2) : 0;
     }
+
+    /**
+     * Определить победителя A/B теста по метрикам.
+     *
+     * @param int $campaignAId
+     * @param int $campaignBId
+     * @return JsonResponse
+     */
+    public function determineABTestWinner(int $campaignAId, int $campaignBId): JsonResponse
+    {
+        $campaignAMetrics = $this->getMetricsForCampaign($campaignAId);
+        $campaignBMetrics = $this->getMetricsForCampaign($campaignBId);
+
+        if (!$campaignAMetrics || !$campaignBMetrics) {
+            return response()->json(['error' => 'Unable to retrieve metrics for one or both campaigns.'], 404);
+        }
+
+        // Определяем победителя на основе кликов (приоритет) и открытий
+        $winner = $this->compareMetrics($campaignAMetrics, $campaignBMetrics);
+
+        return response()->json([
+            'campaign_a' => $campaignAMetrics,
+            'campaign_b' => $campaignBMetrics,
+            'winner' => $winner,
+        ]);
+    }
+
+    /**
+     * Сравнить метрики двух кампаний и определить победителя.
+     *
+     * @param array $campaignAMetrics
+     * @param array $campaignBMetrics
+     * @return string
+     */
+    private function compareMetrics(array $campaignAMetrics, array $campaignBMetrics): string
+    {
+        //clicks have more priority than opened
+        if ($campaignAMetrics['clicked'] > $campaignBMetrics['clicked']) {
+            return 'A';
+        } elseif ($campaignAMetrics['clicked'] < $campaignBMetrics['clicked']) {
+            return 'B';
+        }
+
+        //use opened rate only if click rate has draw between campaigns
+        if ($campaignAMetrics['opened'] > $campaignBMetrics['opened']) {
+            return 'A';
+        } elseif ($campaignAMetrics['opened'] < $campaignBMetrics['opened']) {
+            return 'B';
+        }
+
+        return 'Draw';
+    }
+
 }

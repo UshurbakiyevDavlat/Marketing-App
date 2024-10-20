@@ -21,7 +21,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}', [CampaignController::class, 'update']);
             Route::delete('/{id}', [CampaignController::class, 'destroy']);
 
-            Route::post('/ab-test', [CampaignController::class, 'createABTest']);
+            Route::group(['prefix' => '/ab-test'], function () {
+                Route::get('/winner/{campaignAId}/{campaignBId}', [CampaignAnalyticsController::class, 'determineABTestWinner']);
+                Route::post('/', [CampaignController::class, 'createABTest']);
+            });
+
             Route::post('/{id}/schedule', [CampaignController::class, 'schedule']);
             Route::post('/{id}/send', [CampaignController::class, 'send']);
             Route::post('/{id}/attach', [CampaignController::class, 'attachSubscribers']);
