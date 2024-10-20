@@ -50,8 +50,6 @@ class CampaignEmailService
     }
 
     /**
-     * Отправка кампании с A/B тестированием.
-     *
      * @param Campaign $campaignA
      * @param Campaign $campaignB
      * @param User $user
@@ -64,28 +62,35 @@ class CampaignEmailService
         foreach ($subscribers as $index => $subscriber) {
             $campaign = ($index % 2 === 0) ? $campaignA : $campaignB;
 
-            $this->emailService->sendCampaign([$subscriber], $campaign, $user->email, $user->name);
+            try {
+                $this->emailService->sendCampaign([$subscriber], $campaign, $user->email, $user->name);
 
-            EmailLog::updateOrCreate(
-                [
-                    'campaign_id' => $campaign->id,
-                    'email' => $subscriber->email,
-                ],
-                [
-                    'status' => 'delivered',
-                    'event' => "Email sent to variant " . $campaign->variant,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
-            );
+                EmailLog::updateOrCreate(
+                    [
+                        'campaign_id' => $campaign->id,
+                        'email' => $subscriber->email,
+                    ],
+                    [
+                        'status' => 'delivered',
+                        'event' => "Email sent to variant " . $campaign->variant,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
 
-            Log::info("A/B test email sent", [
-                'subscriber' => $subscriber->email,
-                'campaign_variant' => $campaign->variant
-            ]);
+                Log::info("A/B test email sent", [
+                    'subscriber' => $subscriber->email,
+                    'campaign_variant' => $campaign->variant
+                ]);
+            } catch (Exception $e) {
+                Log::error("Error sending A/B test email", [
+                    'subscriber' => $subscriber->email,
+                    'campaign_variant' => $campaign->variant,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         Log::info('A/B test emails sent successfully');
     }
-
 }

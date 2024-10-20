@@ -276,6 +276,15 @@ class CampaignController extends Controller
             return response()->json(['error' => 'A/B Testing is not available on your current plan.'], 403);
         }
 
+        $abTestLimit = $user->getFeatureLimit('ab_testing', 'ab_testing_limit');
+        $currentABTestsCount = Campaign::where('user_id', $user->id)
+            ->where('variant', '!=', null)
+            ->count();
+
+        if ($abTestLimit !== null && $currentABTestsCount >= $abTestLimit) {
+            return response()->json(['error' => 'A/B Testing limit reached for your plan.'], 403);
+        }
+
         $validated = $request->validate([
             'subject_a' => 'required|string|max:255',
             'content_a' => 'required|string',
@@ -286,7 +295,6 @@ class CampaignController extends Controller
             'scheduled_at' => 'nullable|date|after:now',
         ]);
 
-        //todo на будущее рассмотреть мб больше разных вариантов
         $campaignA = Campaign::create([
             'name' => $request->input('name') . ' (Variant A)',
             'subject' => $validated['subject_a'],
@@ -310,10 +318,32 @@ class CampaignController extends Controller
         $campaignB->subscribers()->attach($subscriberIds);
 
         if (isset($validated['scheduled_at'])) {
-            Queue::later(Carbon::parse($validated['scheduled_at']), new SendCampaignEmails($campaignA, $user, $this->campaignEmailService));
-            Queue::later(Carbon::parse($validated['scheduled_at']), new SendCampaignEmails($campaignB, $user, $this->campaignEmailService));
+            try {
+                Queue::later(
+                    Carbon::parse($validated['scheduled_at']),
+                    new SendCampaignEmails($campaignA, $user, $this->campaignEmailService)
+                );
+                Queue::later(
+                    Carbon::parse($validated['scheduled_at']),
+                    new SendCampaignEmails($campaignB, $user, $this->campaignEmailService)
+                );
+
+                Log::info("A/B test campaigns scheduled successfully", [
+                    'campaign_a' => $campaignA->id,
+                    'campaign_b' => $campaignB->id,
+                    'scheduled_at' => $validated['scheduled_at']
+                ]);
+            } catch (Exception $e) {
+                Log::error('Error scheduling A/B test campaigns', ['error' => $e->getMessage()]);
+                return response()->json(['error' => 'Failed to schedule A/B test campaigns.'], 500);
+            }
         } else {
-            $this->campaignEmailService->sendABTest($campaignA, $campaignB, $user);
+            try {
+                $this->campaignEmailService->sendABTest($campaignA, $campaignB, $user);
+            } catch (Exception $e) {
+                Log::error('Error sending A/B test campaigns', ['error' => $e->getMessage()]);
+                return response()->json(['error' => 'Failed to send A/B test campaigns.'], 500);
+            }
         }
 
         return response()->json([
