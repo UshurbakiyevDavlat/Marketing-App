@@ -75,19 +75,32 @@ class CampaignAnalyticsController extends Controller
         $clickCount = $metrics['clicked'] ?? 0;
         $unsubscribeCount = $metrics['unsubscribed'] ?? 0;
         $bounceCount = $metrics['bounced'] ?? 0;
+        $uniqueOpens = $metrics['unique_opens'] ?? 0;
+        $uniqueClicks = $metrics['unique_clicks'] ?? 0;
+        $conversions = $metrics['conversions'] ?? 0;
 
-        $openRate = $this->calculateRate($openCount, $deliveredCount);
-        $clickRate = $this->calculateRate($clickCount, $deliveredCount);
+        // Новые метрики
+        $openRate = $this->calculateRate($uniqueOpens, $deliveredCount);
+        $clickRate = $this->calculateRate($uniqueClicks, $deliveredCount);
+        $bounceRate = $this->calculateRate($bounceCount, $totalSent);
+        $unsubscribeRate = $this->calculateRate($unsubscribeCount, $deliveredCount);
+        $conversionRate = $this->calculateRate($conversions, $uniqueClicks);
 
         $responseBody = [
             'total_sent' => $totalSent,
-            'delivered' => (int)$deliveredCount,
-            'opens' => (int)$openCount,
-            'clicks' => (int)$clickCount,
-            'unsubscribes' => (int)$unsubscribeCount,
-            'bounces' => (int)$bounceCount,
+            'delivered' => $deliveredCount,
+            'opens' => $openCount,
+            'unique_opens' => $uniqueOpens,
+            'clicks' => $clickCount,
+            'unique_clicks' => $uniqueClicks,
+            'unsubscribes' => $unsubscribeCount,
+            'bounces' => $bounceCount,
+            'conversions' => $conversions,
             'open_rate' => $openRate,
             'click_rate' => $clickRate,
+            'bounce_rate' => $bounceRate,
+            'unsubscribe_rate' => $unsubscribeRate,
+            'conversion_rate' => $conversionRate,
         ];
 
         if ($campaignId) {
@@ -96,6 +109,7 @@ class CampaignAnalyticsController extends Controller
 
         return response()->json($responseBody);
     }
+
 
     /**
      * Возвращаем пустой ответ с нулевыми метриками
