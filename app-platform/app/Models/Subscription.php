@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property mixed $stripe_subscription_id
  * @property mixed $user_id
+ * @property mixed $plan
  * @method static create(array $array)
  * @method static find(mixed $subscription_id)
  */

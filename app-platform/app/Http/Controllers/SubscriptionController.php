@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Subscription;
 use App\Models\User;
+use App\Notifications\SubscriptionCanceledNotification;
+use App\Notifications\SubscriptionCreatedNotification;
+use App\Notifications\SubscriptionRefundedNotification;
 use App\Services\PaymentService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -83,6 +86,8 @@ class SubscriptionController extends Controller
 
             Log::info('Subscription created successfully for user: ' . $user->id, ['subscription' => $subscription]);
 
+            $user->notify(new SubscriptionCreatedNotification($subscription));
+
             return response()->json(['message' => 'Subscription created successfully', 'subscription' => $subscription], 201);
         } catch (Exception $e) {
             DB::rollBack();
@@ -118,6 +123,8 @@ class SubscriptionController extends Controller
             DB::commit();
 
             Log::info('Subscription canceled successfully for user: ' . $user->id, ['subscription' => $subscription]);
+
+            $user->notify(new SubscriptionCanceledNotification($subscription, $cancelReason));
 
             return response()->json(['message' => 'Subscription was successfully canceled']);
         } catch (Exception $exception) {
@@ -157,6 +164,8 @@ class SubscriptionController extends Controller
             DB::commit();
 
             Log::info('Refund processed successfully for user: ' . $user->id, ['subscription_id' => $subscription->id]);
+
+            $user->notify(new SubscriptionRefundedNotification($subscription, $validated['amount']));
 
             return response()->json(['message' => 'Refund processed successfully']);
         } catch (Exception $e) {

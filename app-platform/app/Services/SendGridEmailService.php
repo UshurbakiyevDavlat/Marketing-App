@@ -36,7 +36,6 @@ class SendGridEmailService implements EmailServiceInterface
         string   $senderName,
     ): void
     {
-        $sendgrid = new \SendGrid(config('mail.mailers.sendgrid.api_key'));
 
         foreach ($recipients as $subscriber) {
             $email = new Mail();
@@ -49,7 +48,7 @@ class SendGridEmailService implements EmailServiceInterface
             $email->addCustomArg('campaign_id', "$campaign->id");
 
             try {
-                $response = $sendgrid->send($email);
+                $response = $this->sendGrid->send($email);
 
                 if ($response->statusCode() != 202) {
                     Log::error('Sendgrid response error-log', ['response' => $response->body()]);
