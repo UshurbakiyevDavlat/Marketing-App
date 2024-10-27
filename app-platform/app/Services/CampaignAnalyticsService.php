@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Campaign;
+use App\Models\EmailLog;
 use App\Models\User;
+use Illuminate\Database\RecordNotFoundException;
 
 class CampaignAnalyticsService
 {
@@ -173,5 +175,52 @@ class CampaignAnalyticsService
         $metrics['conversion_rate'] = $this->calculateRate($metrics['conversions'], $metrics['unique_clicks']);
 
         return $metrics;
+    }
+
+    /**
+     * @param int $campaignId
+     * @return array|array[]
+     * @throws \Exception
+     */
+    public function calculateTimeMetrics(int $campaignId): array
+    {
+        $emailLogs = EmailLog::where('campaign_id', $campaignId)->get();
+
+        if (!$emailLogs) {
+            throw new \Exception('Email logs not found');
+        }
+
+        // Временные метрики: дни недели, часы, среднее время до первого открытия/клика
+        $timeMetrics = [
+            'open_times' => [],
+            'click_times' => [],
+        ];
+
+        foreach ($emailLogs as $log) {
+            if ($log->status === 'opened') {
+                $timeMetrics['opened_at'][] = $log->created_at->format('H');
+            } elseif ($log->status === 'clicked') {
+                $timeMetrics['clicked_at'][] = $log->created_at->format('H');
+            }
+        }
+
+        // Рассчёт среднего времени до первого открытия и клика
+        $timeMetrics['avg_time_to_open'] = $this->calculateAvgTimeToEvent($emailLogs, 'opened');
+        $timeMetrics['avg_time_to_click'] = $this->calculateAvgTimeToEvent($emailLogs, 'clicked');
+
+        return $timeMetrics;
+    }
+
+    /**
+     * @param $emailLogs
+     * @param $eventType
+     * @return float
+     */
+    private function calculateAvgTimeToEvent($emailLogs, $eventType): float
+    {
+        $times = $emailLogs->where('status', $eventType)->pluck('created_at')
+            ->map(fn($timestamp) => $timestamp->diffInSeconds($emailLogs->first()->created_at));
+
+        return abs($times->avg()) / 60;  // Конвертация в минуты
     }
 }

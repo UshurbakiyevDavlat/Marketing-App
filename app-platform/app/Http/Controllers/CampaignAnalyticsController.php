@@ -72,4 +72,23 @@ class CampaignAnalyticsController extends Controller
 
         return response()->json($result);
     }
+
+    /**
+     * Получение временных метрик для кампании
+     *
+     * @param int $campaignId
+     * @return JsonResponse
+     * @throws Exception
+     */
+    public function getTimeMetricsForCampaign(int $campaignId): JsonResponse
+    {
+        $campaign = Campaign::findOrFail($campaignId);
+
+        $timeMetrics = $this->analyticsService->calculateTimeMetrics($campaign->id);
+
+        return response()->json([
+            'time_metrics' => $timeMetrics,
+        ]);
+    }
+
 }
