@@ -14,13 +14,12 @@ class WebhookController extends Controller
      */
     public function handleWebhook(Request $request): JsonResponse
     {
-        Log::info('SendGrid Event appereance', ['data' => $request->all()]);
+        Log::info('SendGrid Event appearance', ['data' => $request->all()]);
         $events = $request->all();
 
         foreach ($events as $event) {
             Log::info('SendGrid Event', $event);
 
-            // Проверяем, если в событии есть custom_args
             if (isset($event['campaign_id'])) {
                 switch ($event['event']) {
                     case 'delivered':
@@ -36,7 +35,9 @@ class WebhookController extends Controller
                         break;
 
                     case 'bounce':
-                        $this->logEvent($event, 'bounced');
+                        // Определяем soft или hard bounce и передаем это в logEvent
+                        $status = $event['type'] === 'hard' ? 'hard_bounced' : 'soft_bounced';
+                        $this->logEvent($event, $status);
                         break;
 
                     case 'unsubscribe':
@@ -48,9 +49,8 @@ class WebhookController extends Controller
                         break;
                 }
             } else {
-                Log::warning('Missing custom_args in SendGrid event', $event);
+                Log::warning('Missing campaign_id in SendGrid event', $event);
             }
-
         }
 
         return response()->json(['message' => 'Webhook received']);
@@ -69,10 +69,10 @@ class WebhookController extends Controller
             [
                 'status' => $status,
                 'event' => $event['event'],
+                'bounce_reason' => $event['reason'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
         );
     }
 }
-

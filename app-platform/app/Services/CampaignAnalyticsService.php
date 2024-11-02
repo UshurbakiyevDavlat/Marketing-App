@@ -69,6 +69,8 @@ class CampaignAnalyticsService
             'unique_clicks' => $campaign->emailLogs()->where('status', 'clicked')->distinct('email')->count(),
             'unsubscribes' => $campaign->emailLogs()->where('status', 'unsubscribed')->count(),
             'bounces' => $campaign->emailLogs()->where('status', 'bounced')->count(),
+            'soft_bounces' => $campaign->emailLogs()->where('status', 'soft_bounced')->count(),
+            'hard_bounces' => $campaign->emailLogs()->where('status', 'hard_bounced')->count(),
             'conversions' => $campaign->emailLogs()->where('status', 'converted')->count(),
         ];
 
@@ -171,10 +173,30 @@ class CampaignAnalyticsService
         $metrics['open_rate'] = $this->calculateRate($metrics['unique_opens'], $metrics['delivered']);
         $metrics['click_rate'] = $this->calculateRate($metrics['unique_clicks'], $metrics['delivered']);
         $metrics['bounce_rate'] = $this->calculateRate($metrics['bounces'], $metrics['total_sent']);
+        $metrics['soft_bounce_rate'] = $this->calculateRate($metrics['soft_bounces'], $metrics['total_sent']);
+        $metrics['hard_bounce_rate'] = $this->calculateRate($metrics['hard_bounces'], $metrics['total_sent']);
         $metrics['unsubscribe_rate'] = $this->calculateRate($metrics['unsubscribes'], $metrics['delivered']);
         $metrics['conversion_rate'] = $this->calculateRate($metrics['conversions'], $metrics['unique_clicks']);
 
         return $metrics;
+    }
+
+    /**
+     * @param int $campaignId
+     * @return array
+     */
+    public function getBounceAnalysis(int $campaignId): array
+    {
+        $emailLogs = EmailLog::where('campaign_id', $campaignId)
+            ->whereIn('status', ['bounced', 'soft_bounced', 'hard_bounced'])
+            ->get();
+
+        return [
+            'total_bounces' => $emailLogs->count(),
+            'soft_bounces' => $emailLogs->where('status', 'soft_bounced')->count(),
+            'hard_bounces' => $emailLogs->where('status', 'hard_bounced')->count(),
+            'bounce_reasons' => $emailLogs->pluck('bounce_reason')->unique()->all(),
+        ];
     }
 
     /**

@@ -91,4 +91,18 @@ class CampaignAnalyticsController extends Controller
         ]);
     }
 
+    /**
+     * @param int $campaignId
+     * @return JsonResponse
+     */
+    public function getBounceAnalysis(int $campaignId): JsonResponse
+    {
+        try {
+            $bounceAnalysis = $this->analyticsService->getBounceAnalysis($campaignId);
+            return response()->json(['bounce_analysis' => $bounceAnalysis]);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Error fetching bounce analysis'], 500);
+        }
+    }
+
 }
