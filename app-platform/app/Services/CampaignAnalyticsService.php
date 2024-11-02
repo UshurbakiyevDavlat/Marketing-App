@@ -8,6 +8,11 @@ use App\Models\User;
 
 class CampaignAnalyticsService
 {
+    const string TEST_A = 'A';
+    const string TEST_B = 'B';
+
+    const string TIE = 'Tie';
+
     /**
      * @param int $campaignId
      * @return int[]|null
@@ -42,8 +47,8 @@ class CampaignAnalyticsService
         $winner = $this->compareABMetrics($metricsA, $metricsB);
 
         $winner = match ($winner) {
-            'A' => Campaign::findOrFail($campaignAId),
-            'B' => Campaign::findOrFail($campaignBId),
+            self::TEST_A => Campaign::findOrFail($campaignAId),
+            self::TEST_B => Campaign::findOrFail($campaignBId),
             default => null,
         };
         return [
@@ -122,11 +127,11 @@ class CampaignAnalyticsService
         // Если нет кликов, но есть открытия, учитываем открытия
         if ((int)$metricsA['click_rate'] === 0 && (int)$metricsB['click_rate'] === 0) {
             if ($metricsA['open_rate'] > $metricsB['open_rate']) {
-                return 'A';
+                return self::TEST_A;
             } elseif ($metricsB['open_rate'] > $metricsA['open_rate']) {
-                return 'B';
+                return self::TEST_B;
             } else {
-                return 'Tie';
+                return self::TIE;
             }
         }
 
