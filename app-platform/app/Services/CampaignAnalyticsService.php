@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Campaign;
 use App\Models\EmailLog;
 use App\Models\User;
-use Illuminate\Database\RecordNotFoundException;
 
 class CampaignAnalyticsService
 {
