@@ -116,6 +116,57 @@ class CampaignAnalyticsService
         return $this->additionalRateCounting($aggregate);
     }
 
+    /**
+     * @param int $campaignId
+     * @return array
+     */
+    public function getSegmentedMetrics(int $campaignId): array
+    {
+        $emailLogs = EmailLog::where('campaign_id', $campaignId)->get();
+
+        $segmentedMetrics = [];
+
+        foreach ($emailLogs as $log) {
+            $tags = json_decode($log->tags);
+
+            if ($tags) {
+                foreach ($tags as $tag) {
+                    if (!isset($segmentedMetrics[$tag])) {
+                        $segmentedMetrics[$tag] = [
+                            'total_sent' => 0,
+                            'delivered' => 0,
+                            'opens' => 0,
+                            'clicks' => 0,
+                            'unsubscribes' => 0,
+                            'bounces' => 0,
+                        ];
+                    }
+
+                    $segmentedMetrics[$tag]['total_sent']++;
+
+                    switch ($log->status) {
+                        case 'delivered':
+                            $segmentedMetrics[$tag]['delivered']++;
+                            break;
+                        case 'opened':
+                            $segmentedMetrics[$tag]['opens']++;
+                            break;
+                        case 'clicked':
+                            $segmentedMetrics[$tag]['clicks']++;
+                            break;
+                        case 'unsubscribed':
+                            $segmentedMetrics[$tag]['unsubscribes']++;
+                            break;
+                        case 'bounced':
+                            $segmentedMetrics[$tag]['bounces']++;
+                            break;
+                    }
+                }
+            }
+        }
+
+        return $segmentedMetrics;
+    }
 
     /**
      * @param array $metricsA
@@ -149,11 +200,11 @@ class CampaignAnalyticsService
         }
 
         if ($scoreA > $scoreB) {
-            return 'A';
+            return self::TEST_A;
         } elseif ($scoreB > $scoreA) {
-            return 'B';
+            return self::TEST_B;
         } else {
-            return 'Tie';
+            return self::TIE;
         }
     }
 
@@ -195,11 +246,28 @@ class CampaignAnalyticsService
             ->whereIn('status', ['bounced', 'soft_bounced', 'hard_bounced'])
             ->get();
 
+        $softBounces = $emailLogs->where('status', 'soft_bounced')->count();
+        $hardBounces = $emailLogs->where('status', 'hard_bounced')->count();
+        $totalBounces = $emailLogs->count();
+
+        // Top-5 причин отказов
+        $topBounceReasons = $emailLogs->pluck('bounce_reason')
+            ->filter()
+            ->countBy()
+            ->sortDesc()
+            ->take(5)
+            ->all();
+
+        $metrics = $this->calculateMetrics(Campaign::findOrFail($campaignId));
+
         return [
-            'total_bounces' => $emailLogs->count(),
-            'soft_bounces' => $emailLogs->where('status', 'soft_bounced')->count(),
-            'hard_bounces' => $emailLogs->where('status', 'hard_bounced')->count(),
-            'bounce_reasons' => $emailLogs->pluck('bounce_reason')->unique()->all(),
+            'total_bounces' => $totalBounces,
+            'soft_bounces' => $softBounces,
+            'hard_bounces' => $hardBounces,
+            'soft_bounce_rate' => $this->calculateRate($softBounces, $metrics['total_sent']),
+            'hard_bounce_rate' => $this->calculateRate($hardBounces, $metrics['total_sent']),
+            'bounce_reasons' => array_keys($topBounceReasons),
+            'bounce_reason_counts' => $topBounceReasons,
         ];
     }
 

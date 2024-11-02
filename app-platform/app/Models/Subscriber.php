@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * @method static create(array $array)
  * @method static findOrFail(int $id)
+ * @method static where(string $string, $email)
  */
 class Subscriber extends Model
 {

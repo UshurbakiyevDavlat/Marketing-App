@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Subscriber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -61,6 +62,8 @@ class WebhookController extends Controller
      */
     protected function logEvent($event, $status): void
     {
+        $subscriber = Subscriber::where('email', $event['email'])->first();
+
         EmailLog::updateOrCreate(
             [
                 'campaign_id' => $event['campaign_id'],
@@ -69,6 +72,7 @@ class WebhookController extends Controller
             [
                 'status' => $status,
                 'event' => $event['event'],
+                'tags' => $subscriber->tags,
                 'bounce_reason' => $event['reason'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),

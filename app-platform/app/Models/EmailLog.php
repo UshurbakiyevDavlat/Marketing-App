@@ -22,7 +22,13 @@ class EmailLog extends Model
         'campaign_id',
         'email',
         'status',
-        'event'
+        'event',
+        'bounce_reason',
+        'tags'
+    ];
+
+    protected $casts = [
+        'tag' => 'array',
     ];
 
     /**
@@ -33,5 +39,4 @@ class EmailLog extends Model
     {
         return $this->belongsTo(Campaign::class, 'campaign_id');
     }
-
 }

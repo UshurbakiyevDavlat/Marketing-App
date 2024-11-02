@@ -105,4 +105,17 @@ class CampaignAnalyticsController extends Controller
         }
     }
 
+    /**
+     * @param int $campaignId
+     * @return JsonResponse
+     */
+    public function getSegmentedAnalytics(int $campaignId): JsonResponse
+    {
+        try {
+            $segmentedMetrics = $this->analyticsService->getSegmentedMetrics($campaignId);
+            return response()->json(['segmented_metrics' => $segmentedMetrics]);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Error fetching segmented analytics'], 500);
+        }
+    }
 }
