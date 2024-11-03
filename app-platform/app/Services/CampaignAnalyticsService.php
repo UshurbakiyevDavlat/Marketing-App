@@ -59,29 +59,6 @@ class CampaignAnalyticsService
     }
 
     /**
-     * @param Campaign $campaign
-     * @return array
-     */
-    private function calculateMetrics(Campaign $campaign): array
-    {
-        $metrics = [
-            'total_sent' => $campaign->emailLogs()->count(),
-            'delivered' => $campaign->emailLogs()->where('status', 'delivered')->count(),
-            'opens' => $campaign->emailLogs()->where('status', 'opened')->count(),
-            'unique_opens' => $campaign->emailLogs()->where('status', 'opened')->distinct('email')->count(),
-            'clicks' => $campaign->emailLogs()->where('status', 'clicked')->count(),
-            'unique_clicks' => $campaign->emailLogs()->where('status', 'clicked')->distinct('email')->count(),
-            'unsubscribes' => $campaign->emailLogs()->where('status', 'unsubscribed')->count(),
-            'bounces' => $campaign->emailLogs()->where('status', 'bounced')->count(),
-            'soft_bounces' => $campaign->emailLogs()->where('status', 'soft_bounced')->count(),
-            'hard_bounces' => $campaign->emailLogs()->where('status', 'hard_bounced')->count(),
-            'conversions' => $campaign->emailLogs()->where('status', 'converted')->count(),
-        ];
-
-        return $this->additionalRateCounting($metrics);
-    }
-
-    /**
      * @param $campaigns
      * @return array
      */
@@ -317,4 +294,88 @@ class CampaignAnalyticsService
 
         return abs($times->avg()) / 60;  // Конвертация в минуты
     }
+
+    /**
+     * @param int $campaignId
+     * @param string|null $tag
+     * @param string|null $bounceType
+     * @param string|null $timePeriod
+     * @return array
+     */
+    public function getFilteredCampaignMetrics(
+        int     $campaignId,
+        ?string $tag = null,
+        ?string $bounceType = null,
+        ?string $timePeriod = null
+    ): array
+    {
+        $query = EmailLog::where('campaign_id', $campaignId);
+
+        if ($tag) {
+            $query->whereJsonContains('tags', $tag);
+        }
+
+        if ($bounceType) {
+            $query->where('status', $bounceType === 'soft' ? 'soft_bounced' : 'hard_bounced');
+        }
+
+        if ($timePeriod) {
+            switch ($timePeriod) {
+                case 'morning':
+                    $query->whereTime('created_at', '>=', '06:00:00')
+                        ->whereTime('created_at', '<', '12:00:00');
+                    break;
+                case 'afternoon':
+                    $query->whereTime('created_at', '>=', '12:00:00')
+                        ->whereTime('created_at', '<', '18:00:00');
+                    break;
+                case 'evening':
+                    $query->whereTime('created_at', '>=', '18:00:00')
+                        ->whereTime('created_at', '<', '24:00:00');
+                    break;
+                case 'night':
+                    $query->whereTime('created_at', '>=', '00:00:00')
+                        ->whereTime('created_at', '<', '06:00:00');
+                    break;
+            }
+        }
+
+        $filteredLogs = $query->get();
+        return $this->calculateMetricsFromLogs($filteredLogs);
+    }
+
+    /**
+     * @param Campaign $campaign
+     * @return array
+     */
+    private function calculateMetrics(Campaign $campaign): array
+    {
+        $emailLogs = $campaign->emailLogs;
+        return $this->calculateMetricsFromLogs($emailLogs);
+    }
+
+    /**
+     * @param $logs
+     * @return array
+     */
+    private function calculateMetricsFromLogs($logs): array
+    {
+        $metrics = [
+            'total_sent' => $logs->count(),
+            'delivered' => $logs->where('status', 'delivered')->count(),
+            'opens' => $logs->where('status', 'opened')->count(),
+            'unique_opens' => $logs->where('status', 'opened')->unique('email')->count(),
+            'clicks' => $logs->where('status', 'clicked')->count(),
+            'unique_clicks' => $logs->where('status', 'clicked')->unique('email')->count(),
+            'unsubscribes' => $logs->where('status', 'unsubscribed')->count(),
+            'bounces' => $logs->where('status', 'bounced')->count(),
+            'soft_bounces' => $logs->where('status', 'soft_bounced')->count(),
+            'hard_bounces' => $logs->where('status', 'hard_bounced')->count(),
+            'conversions' => $logs->where('status', 'converted')->count(),
+        ];
+
+        return $this->additionalRateCounting($metrics);
+    }
+
+
 }

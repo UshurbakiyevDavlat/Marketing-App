@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property mixed $type
  * @property mixed $variant
  * @property mixed $name
+ * @property mixed $emailLogs
  */
 class Campaign extends Model
 {

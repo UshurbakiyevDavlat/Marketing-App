@@ -9,6 +9,7 @@ use App\Services\CampaignAnalyticsService;
 use Illuminate\Database\RecordNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class CampaignAnalyticsController extends Controller
@@ -116,6 +117,26 @@ class CampaignAnalyticsController extends Controller
             return response()->json(['segmented_metrics' => $segmentedMetrics]);
         } catch (Exception $e) {
             return response()->json(['error' => 'Error fetching segmented analytics'], 500);
+        }
+    }
+
+    /**
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function getFilteredCampaignAnalytics(Request $request, int $id): JsonResponse
+    {
+        try {
+            $tag = $request->input('tag');
+            $bounceType = $request->input('bounce_type');
+            $timePeriod = $request->input('time_period');
+
+            $metrics = $this->analyticsService->getFilteredCampaignMetrics($id, $tag, $bounceType, $timePeriod);
+
+            return response()->json(['metrics' => $metrics]);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Error fetching filtered analytics'], 500);
         }
     }
 }

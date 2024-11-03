@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::get('/{id}', [CampaignAnalyticsController::class, 'getCampaignAnalytics']);
                 Route::get('/{id}/bounce-analysis', [CampaignAnalyticsController::class, 'getBounceAnalysis']);
                 Route::get('/{id}/segment-analysis', [CampaignAnalyticsController::class, 'getSegmentedAnalytics']);
+                Route::get('/{id}/filtered-analysis', [CampaignAnalyticsController::class, 'getFilteredCampaignAnalytics']);
 
             });
         });
