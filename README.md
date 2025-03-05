@@ -1,2 +1,1 @@
-# kazmailer
-email marketing platform application
+# Marketing sender and analytics platform "MARKY"

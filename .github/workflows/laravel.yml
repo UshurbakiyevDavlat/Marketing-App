@@ -21,32 +21,26 @@ jobs:
 
       - name: Copy .env
         run: |
-          cd app-platform
           php -r "file_exists('.env') || copy('.env.example', '.env');"
 
       - name: Clear Composer Cache
         run: |
-          cd app-platform
           composer clear-cache
 
       - name: Install Dependencies
         run: |
-          cd app-platform
           composer install --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
       - name: Generate key
         run: |
-          cd app-platform
           php artisan key:generate
 
       - name: Directory Permissions
         run: |
-          cd app-platform
           chmod -R 777 storage bootstrap/cache
 
       - name: Create Database
         run: |
-          cd app-platform
           mkdir -p database
           touch database/database.sqlite
 
@@ -55,5 +49,4 @@ jobs:
           DB_CONNECTION: sqlite
           DB_DATABASE: database/database.sqlite
         run: |
-          cd app-platform
           php artisan test
